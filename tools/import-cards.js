@@ -24,7 +24,7 @@ for (const [dept, file] of Object.entries(DEPT)) {
   // подсказки к новостям: короткий вопрос (hint) и «что → итог» (short), чтобы не заставлять детей читать
   events.concat(keep).forEach(e => { const m = evMeta[e.id]; if (m) { e.hint = m[0]; e.short = m[1]; if (m[2]) e.explain = m[2]; } });
   const choices = [];
-  for (const c of src.choices.filter(c => c.dept === dept)) {
+  for (const c of src.choices.filter(c => c.dept === dept && !(meta._skip || []).includes(c.id))) {
     const m = meta[c.id] || [];
     const title = m[0] || c.text.split(/[.,?!]/)[0].slice(0, 36);
     const withPos = c.options.filter(o => o.position).length;

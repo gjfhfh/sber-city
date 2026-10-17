@@ -631,38 +631,6 @@
       }
     },
     {
-      "id": "m16_buy_more",
-      "type": "choice",
-      "core": false,
-      "icon": "chart",
-      "who": "Все вокруг",
-      "title": "Докупить золото?",
-      "text": "Золото давно дорожает, и все советуют докупить ещё.",
-      "explain": "Когда все покупают, легко поддаться толпе. Цена, которая долго росла, может развернуться.",
-      "weight": 2,
-      "options": {
-        "right": {
-          "label": "Докупить",
-          "coins": -2,
-          "position": {
-            "name": "Докупить золото?",
-            "id": "gold_more",
-            "dir": "up",
-            "size": "large",
-            "maxShields": 4
-          }
-        },
-        "left": {
-          "label": "Не докупать"
-        },
-        "down": {
-          "label": "Подождать",
-          "coins": -1,
-          "retry": true
-        }
-      }
-    },
-    {
       "id": "m17_hedge_contract",
       "type": "choice",
       "core": false,

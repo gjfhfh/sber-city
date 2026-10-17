@@ -112,7 +112,8 @@
       var el = labels[isl.id]; if (!el) return;
       var y = isl.id === 'sber' ? (city.sberState === 'future' ? 22 : 14) : isl.playable ? 13.6 : 11;
       var p = city.project(isl.x, y, isl.z);
-      if (!p || p.x < -60 || p.x > city.w + 60 || p.y < 0 || p.y > city.h) { el.style.opacity = 0; return; }
+      if (!p || p.x < -60 || p.x > city.w + 60 || p.y < 96 || p.y > city.h) { el.style.opacity = 0; el.style.pointerEvents = 'none'; return; }
+      el.style.pointerEvents = '';
       el.style.opacity = '';
       el.style.transform = 'translate(' + Math.round(p.x) + 'px,' + Math.round(p.y) + 'px) translate(-50%,-100%)';
     });
@@ -151,11 +152,21 @@
   function closeModal() { var m = $('modal'); m.hidden = true; m.innerHTML = ''; }
   function leaveRun() {
     closeModal();
-    if (city) city.setSber('classic', true);
+    resetSber();
     S.run = null; $('hud').hidden = true; setLabels(true);
     showMap();
   }
-  function quitGame() { closeModal(); Bridge.send('CLOSE_EVENT'); toast('Закрываем игру…'); }
+  function quitGame() {
+    closeModal(); Bridge.send('CLOSE_EVENT'); toast('Закрываем игру…');
+    // в приложении экран закроется сам; если мы в обычном браузере — возвращаемся на титульный экран
+    setTimeout(function () {
+      if (document.hidden) return;
+      if (S.run) { S.run = null; resetSber(); }
+      $('hud').hidden = true; setLabels(true); showTitle();
+      toast('В приложении игра закроется. Здесь просто закрой вкладку');
+    }, 1200);
+  }
+  function resetSber() { if (city && city.sberState !== 'classic') city.setSber('classic', true); }
   function openMenu() {
     var m = $('modal'), inRun = !!S.run && S.screen !== 'result';
     window.Sound.play('tap');
@@ -185,7 +196,12 @@
   function fitApp() {
     var a = $('app'), vv = window.visualViewport, hs = [window.innerHeight, document.documentElement.clientHeight, vv && vv.height].filter(function (x) { return x > 200; });
     if (!hs.length) return;
-    a.style.bottom = 'auto'; a.style.height = Math.min.apply(null, hs) + 'px';
+    var h = Math.min.apply(null, hs), w = a.clientWidth || window.innerWidth;
+    a.style.bottom = 'auto'; a.style.height = h + 'px';
+    var rs = document.documentElement.style;
+    rs.setProperty('--vh', (h / 100) + 'px'); rs.setProperty('--app-h', h + 'px');
+    document.body.classList.toggle('land', w > h && h < 560);
+    document.body.classList.toggle('short', h <= 700);
     if (city) { try { frameCamera(); } catch (e) { /* ignore */ } }
   }
   window.addEventListener('resize', fitApp);
@@ -347,9 +363,8 @@
       '<div class="why intro-why"><b>Как играть</b>Каждый месяц — новость и решение. Угадай, куда новость двинет ' + (i.id === 'metals' ? 'цену золота' : 'дела у бизнеса') + ', и реши, рисковать или защищаться.</div>' +
       '<div class="icons-row"><div>' + ic('i-news') + 'Угадай, что будет с ценой</div><div>' + ic('i-coin') + 'Сделка стоит монеты. Угадал — вернёшь с прибылью</div><div>' + ic('i-shield') + 'Ошибся — потеряешь щиты, не деньги</div></div></div>' +
       '<button class="btn" id="begin" type="button">Начать полгода</button>' +
-      '<div class="row quiet"><button class="btn ghost" id="intro-back" type="button">' + ic('i-map') + 'В город</button><button class="btn ghost" id="intro-exit" type="button">' + ic('i-exit') + 'Выйти</button></div>' +
+      '<div class="row quiet"><button class="btn ghost" id="intro-back" type="button">' + ic('i-map') + 'В город</button></div>' +
       '</article>');
-    on('#intro-exit', 'click', quitGame);
     on('#begin', 'click', function () { window.Sound.play('tap'); nextCard(); });
     on('#intro-back', 'click', function () { window.Sound.play('tap'); leaveRun(); });
   }
@@ -392,6 +407,15 @@
       if (s && sides[s]) fly(s); else { card.style.transition = 'transform .25s cubic-bezier(.2,.9,.3,1.3)'; card.style.transform = ''; preview(null); }
     }
     card.addEventListener('pointerup', end);
+    var wsum = 0, wt = 0;
+    card.addEventListener('wheel', function (e) {
+      if (locked || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      var now = Date.now(); if (now - wt > 300) wsum = 0; wt = now;
+      wsum += e.deltaX;
+      var s = wsum < 0 ? 'right' : 'left';
+      if (Math.abs(wsum) > 120 && sides[s]) { wsum = 0; fly(s); }
+    }, { passive: false });
     card.addEventListener('pointercancel', function () { st = null; card.style.transition = 'transform .25s'; card.style.transform = ''; preview(null); });
     function fly(s) {
       if (locked) return; locked = true;
@@ -532,7 +556,8 @@
       : a.match ? 'Совпало: сделка по новостям.'
       : 'Не совпало: это риск.';
     if (a.hedge) line = 'Страховка нужна, если есть сделки в другую сторону.';
-    return '<div class="sig">' + newsPill + eq + dealPill + '</div><div class="sigtxt">' + esc(line) + '</div>';
+    return '<div class="sig">' + newsPill + eq + dealPill + '</div><div class="sigtxt">' + esc(line) + '</div>' +
+      '<div class="sigtxt muted small" style="margin-top:4px">' + ic('i-coin', 'inl') + 'Монеты за сделку уходят сразу, а выигрыш придёт в конце полугода.</div>';
   }
   function renderChoice(cur) {
     var c = cur.card, r = S.run;
@@ -607,7 +632,7 @@
     if (city) { city.auto = 0.08; frameCamera(); }
     window.Sound.play('tap');
     setTimeout(function () {
-      if (city) city.setSber(r.bank, r.bank !== 'classic');
+      if (city) city.setSber(r.bank, true);
       window.Sound.play(r.bank === 'future' ? 'win' : 'build'); Bridge.vibrate();
       if (!city) showResult();
     }, city ? 1100 : 0);
@@ -616,12 +641,20 @@
     Bridge.complete();
   }
 
+  // заглушка «смотри видео в разделе Контент»: без внешних ссылок, название берётся из config.json
+  function videoHTML() {
+    var v = S.isl.video || (CONTENT.config.video || null);
+    if (!v) return '';
+    return '<button class="video" id="video" type="button"><span class="vthumb"><span class="vplay">' + ic('i-play') + '</span><span class="vlen">' + esc(v.length || '2:30') + '</span></span>' +
+      '<span class="vtxt"><b>' + esc(v.title) + '</b><span>' + esc(v.sub || 'Видео в разделе «Контент» СберKids') + '</span></span></button>';
+  }
   function showResult() {
     var r = S.run, e = r.eval, i = S.isl, deck = CONTENT.decks[i.id], B = CONTENT.config.sber[r.bank];
     S.screen = 'result';
     S.camTarget = 'sber'; S.camR = 12;
     var cell = function (k, label) {
       var a = r.start[k], b = r[k], d = b - a;
+      if (k === 'coins') return '<div class="rc">' + ic(ICON[k]) + '<div class="rn ' + (d > 0 ? 'up-c' : d < 0 ? 'down-c' : '') + '">' + sgn(d) + '</div><div class="rl">' + label + '</div></div>';
       return '<div class="rc">' + ic(ICON[k]) + '<div class="rn">' + (b < 0 ? MINUS + Math.abs(b) : b) + '</div><div class="rl">' + label + ' ' + (d ? '<span class="' + (d > 0 ? 'up-c' : 'down-c') + '">' + sgn(d) + '</span>' : '') + '</div></div>';
     };
     var flags = e.flags.map(function (f) {
@@ -641,6 +674,7 @@
       '<div class="tip"><b>Совет банкира</b>' + esc(deck.tips[e.style]) + '</div>' +
       '<p class="small"><b>Главное:</b> ' + esc(deck.lesson) + '</p>' +
       '<p class="small muted">' + esc(nextGoal) + '</p>' +
+      videoHTML() +
       '<button class="btn gold" id="share" type="button">' + ic('i-share') + 'Поделиться моим Сбером</button>' +
       '<div class="row"><button class="btn" id="again" type="button">' + ic('i-replay') + 'Ещё раз</button>' +
       (other ? '<button class="btn ghost" id="other" type="button">' + ic(ISL_ICON[other.icon]) + esc(other.short) + '</button>' : '') + '</div>' +
@@ -648,9 +682,10 @@
       '</section>');
     $('hud').hidden = true;
     on('#share', 'click', share);
-    on('#again', 'click', function () { if (city) city.setSber('classic', true); startRun(i); });
-    on('#other', 'click', function () { if (city) city.setSber('classic', true); startRun(other); });
-    on('#tocity', 'click', function () { if (city) city.setSber('classic', true); S.run = null; showMap(); });
+    on('#video', 'click', function () { window.Sound.play('tap'); Bridge.vibrate(); toast('Видео откроется в разделе «Контент» приложения СберKids'); });
+    on('#again', 'click', function () { resetSber(); startRun(i); });
+    on('#other', 'click', function () { resetSber(); startRun(other); });
+    on('#tocity', 'click', function () { resetSber(); S.run = null; showMap(); });
     on('#exit', 'click', quitGame);
   }
 
@@ -668,7 +703,7 @@
       g.fillStyle = '#15211B'; g.font = '900 56px -apple-system, Roboto, Arial, sans-serif'; g.fillText(B.title, 64, 726);
       g.font = '700 30px -apple-system, Roboto, Arial, sans-serif'; g.fillStyle = '#5B6B63';
       g.fillText(STYLE[e.style].name + ' · новости: ' + e.newsOk + ' из ' + e.newsTotal, 64, 780);
-      g.fillText('Прибыль ' + r.coins + ' · Надёжность ' + r.shields + '/10 · Доверие ' + r.hearts + '/10', 64, 828);
+      g.fillText('Прибыль ' + sgn(r.coins - r.start.coins) + ' · Надёжность ' + r.shields + '/10 · Доверие ' + r.hearts + '/10', 64, 828);
       g.fillStyle = '#21A038'; g.font = '800 30px -apple-system, Roboto, Arial, sans-serif'; g.fillText('А каким станет твой Сбер?', 64, 892);
       var img = null; try { img = cv.toDataURL('image/jpeg', 0.86); } catch (er) { img = null; }
       var text = 'Я полгода руководил банком в игре «Город Сбера», и мой Сбер стал таким: «' + B.title + '»! Я — ' + STYLE[e.style].name.toLowerCase() + '. А каким станет твой?';

@@ -237,7 +237,8 @@
     s.quality = q;
     s.score = s.coins + (s.shields - s.start.shields) + (s.hearts - s.start.hearts);
     if (s.shields <= 4 || q < 0.35) return 'repair';
-    if (q >= 0.65 && e.style === 'balanced' && s.shields >= 7 && s.hearts >= 5) return 'future';
+    // башня — только если ещё и новости прочитаны хотя бы наполовину верно: случайным тыканием её не получить
+    if (q >= 0.65 && e.style === 'balanced' && s.shields >= 7 && s.hearts >= 5 && e.newsOk * 2 >= e.newsTotal) return 'future';
     return 'classic';
   }
 

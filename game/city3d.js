@@ -249,7 +249,10 @@
     m.cyl(0, 0.55, 0, 6.6, 6.6, 0.3, 32, colStone);
     return 0.85;
   }
+  // ВАЖНО: каждая RX/RY/T/S кладёт матрицу в стек. Раньше часть из них не снималась,
+  // и всё, что строилось после логотипа (само лого, крыльцо), улетало в небо. Теперь стек восстанавливается.
   function sberLogo(m, ringCol, bg) {
+    var n = m.st.length;
     m.RX(Math.PI / 2);
     m.cyl(0, 0, 0, 1.3, 1.3, 0.12, 20, bg || COL.white);
     m.T(0, 0.13, 0).RY(0);
@@ -257,7 +260,7 @@
     m.torus(0, 0, 0, 0.92, 0.12, 20, ringCol);
     m.push(trs(-0.22, 0.02, 0.1, 0.0)).RY(-0.8).box(0, 0, 0, 0.7, 0.08, 0.24, ringCol).pop();
     m.push(trs(0.25, 0.02, -0.05, 0)).RY(0.75).box(0, 0, 0, 1.2, 0.08, 0.24, ringCol).pop();
-    m.pop().pop();
+    m.st.length = n;
   }
   function bSberClassic(m) {
     var y = sberBase(m, COL.stone);
@@ -272,12 +275,12 @@
     m.cyl(0, y + 4.9, 0, 5.6, 5.4, 0.35, 32, COL.green);
     m.cyl(0, y + 5.25, 0, 4.9, 4.9, 0.8, 28, COL.cream);
     m.sph(0, y + 6.05, 0, 4.7, COL.green, 20, 7, 0.82, true);
-    for (var r = 0; r < 12; r++) { m.push(trs(0, y + 6.05, 0, r / 12 * Math.PI * 2)); m.RZ(0); m.pop(); }
     m.cyl(0, y + 9.7, 0, 0.8, 0.7, 0.6, 12, COL.white).sph(0, y + 10.3, 0, 0.55, COL.green, 10, 4, 1, true);
     // логотип на куполе спереди
+    var n0 = m.st.length;
     m.push(trs(0, y + 6.05, 0, 0)).RX(-0.62).T(0, 0, 4.0 * 0.86).S(1.15, 1.15, 1.15);
     sberLogo(m, COL.green);
-    m.pop();
+    m.st.length = n0;
     // крыльцо
     m.box(0, 0.85, 6.2, 3.4, 0.3, 1.6, COL.white);
   }
@@ -326,9 +329,10 @@
       m.cyl(Math.cos(a) * 5.0, y + 3.0, Math.sin(a) * 5.0, 1.1, 1.1, 3.5, 12, hex('#45D9A3'));
       m.sph(Math.cos(a) * 5.0, y + 6.5, Math.sin(a) * 5.0, 1.1, COL.white, 12, 4, 0.7, true);
     }
+    var n1 = m.st.length;
     m.push(trs(0, y + 8.0, 0, 0)).T(0, 0, 3.75).RX(-0.05).S(1.2, 1.2, 1.2);
     sberLogo(m, COL.green);
-    m.pop();
+    m.st.length = n1;
     m.box(0, 0.85, 6.2, 3.4, 0.3, 1.6, COL.white);
   }
   function halo(m) { m.torus(0, 0, 0, 6.2, 0.22, 40, COL.cyan); m.torus(0, 0, 0, 7.2, 0.1, 40, COL.white); }
@@ -337,13 +341,15 @@
     m.box(0, 0, 0, 3.2, 0.6, 1.3, COL.white).box(-0.2, 0.6, 0, 1.4, 0.6, 1.0, COL.white).box(-0.15, 0.75, 0, 1.45, 0.25, 1.05, COL.glassB);
     m.box(1.7, 0.05, 0, 0.5, 0.45, 0.8, COL.white);
   }
-  function sail(m) { m.box(0, 0, 0, 2.2, 0.5, 0.9, COL.white); m.box(0, 0.5, 0, 0.1, 2.6, 0.1, COL.slate); m.push(trs(0.05, 0.7, 0, 0)).quad([0, 0, 0], [1.1, 0, 0], [0, 2.2, 0], [0, 2.2, 0], COL.white); m.tri([0, 0, 0], [0, 2.2, 0], [1.1, 0, 0], COL.white); m.pop(); }
+  function sail(m) {
+    m.ring(0, 0.04, 0, 1.7, 2.3, 18, hex('#BFEAFB')); // пена вокруг — видно, что лодка на воде
+    m.box(0, 0, 0, 2.2, 0.5, 0.9, COL.white); m.box(0, 0.5, 0, 0.1, 2.6, 0.1, COL.slate); m.push(trs(0.05, 0.7, 0, 0)).quad([0, 0, 0], [1.1, 0, 0], [0, 2.2, 0], [0, 2.2, 0], COL.white); m.tri([0, 0, 0], [0, 2.2, 0], [1.1, 0, 0], COL.white); m.pop(); }
   function cloud(m, R) {
     for (var i = 0; i < 5; i++) m.sph((R() - 0.5) * 5, (R() - 0.3) * 1.2, (R() - 0.5) * 2.4, 1.2 + R() * 1.1, COL.white, 7, 4, 0.75);
   }
   function lock(m) {
     m.box(0, 0, 0, 1.4, 1.1, 0.5, COL.white);
-    m.push(trs(0, 1.1, 0, 0)).RX(Math.PI / 2).torus(0, 0, 0, 0.45, 0.12, 12, COL.white).pop();
+    m.push(trs(0, 1.1, 0, 0)).RX(Math.PI / 2).torus(0, 0, 0, 0.45, 0.12, 12, COL.white).pop().pop();
   }
   function cube(m) { m.box(0, -0.5, 0, 1, 1, 1, COL.white); }
   function water(m) {
@@ -569,8 +575,9 @@
   P.setShift = function (x, y) { this.shiftTarget = [x, y]; };
 
   P.setSber = function (state, animate) {
-    if (state === this.sberState) return;
+    if (state === this.sberState && !animate) return;
     if (!animate) { this.sberState = state; return; }
+    // то же состояние («Крепкий Сбер») тоже перестраивается с салютом — иначе кажется, что анимация не сработала
     this.sberAnim = { from: this.sberState, to: state, t: 0 };
     var col = state === 'future' ? [hex('#FFC531'), COL.cyan, COL.green] : state === 'repair' ? [COL.orange, hex('#B8C0C8'), COL.yellow] : [COL.green, COL.white, COL.gold];
     var R = Math.random;
@@ -640,26 +647,14 @@
       if (hy) { this.draw(this.sHalo, trs(0, 13.5 + Math.sin(t * 1.5) * 0.4, 0, t * 0.6, 1), null, [0.12, 0.2, 0.16]); }
     }
 
-    // маркеры над играбельными отделами и замки над закрытыми
-    this.islands.forEach(function (isl) {
-      if (isl.playable) {
-        var bob = Math.sin(t * 2.2 + isl.a * 3) * 0.45, hot = focus === isl.id;
-        self.draw(self.sPin, trs(isl.x, 11.2 + bob, isl.z, t * 1.6, hot ? 1.25 : 1), isl.icon === 'gold' ? [1.3, 1.1, 0.2] : [1, 1, 1], hot ? [0.05, 0.12, 0.05] : null);
-      } else {
-        self.draw(self.sLock, trs(isl.x, 9.2 + Math.sin(t * 1.4 + isl.a) * 0.2, isl.z, -isl.a - Math.PI / 2, 0.9), [0.95, 0.97, 1]);
-      }
-    });
+    // маркеры и замки над островами убраны: на расстоянии они выглядели как «летающие объекты», острова и так подписаны
     // лодки
     for (var i = 0; i < 4; i++) {
       var r = 44 + i * 6, sp = (0.05 + i * 0.012) * (i % 2 ? -1 : 1), ang = t * sp + i * 1.7;
       var bx = Math.cos(ang) * r, bz = Math.sin(ang) * r, yaw = -ang + (sp > 0 ? -Math.PI / 2 : Math.PI / 2);
-      this.draw(i % 2 ? this.sSail : this.sBoat, trs(bx, 0.1 + Math.sin(t * 2 + i) * 0.12, bz, yaw + Math.PI / 2, 1));
+      this.draw(this.sSail, trs(bx, 0.05 + Math.sin(t * 2 + i) * 0.06, bz, yaw + Math.PI / 2, 1.3)); // только парусники: катера были похожи на машины
     }
-    // облака
-    for (var k = 0; k < 6; k++) {
-      var ca = k / 6 * Math.PI * 2 + t * 0.012, cr = 58 + (k % 3) * 9;
-      this.draw(this.sCloud[k % 2], trs(Math.cos(ca) * cr, 20 + (k % 3) * 3, Math.sin(ca) * cr, k, 1.6));
-    }
+    // облака убраны: в низком ракурсе они висели над морем, как камни
     // частицы преображения
     if (this.parts.length) {
       var dt = 1 / 60;
