@@ -180,6 +180,19 @@
   function on(sel, ev, fn) { var el = document.querySelector(sel); if (el) el.addEventListener(ev, fn); }
   function setLabels(show) { $('labels').classList.toggle('hide', !show); document.body.classList.toggle('playing', !show); }
 
+  // WebView песочницы может отдать странице «высоту» больше видимой области (панель уезжает за экран):
+  // жёстко задаём высоту приложения по меньшему из доступных значений и пересчитываем при изменении размера
+  function fitApp() {
+    var a = $('app'), vv = window.visualViewport, hs = [window.innerHeight, document.documentElement.clientHeight, vv && vv.height].filter(function (x) { return x > 200; });
+    if (!hs.length) return;
+    a.style.bottom = 'auto'; a.style.height = Math.min.apply(null, hs) + 'px';
+    if (city) { try { frameCamera(); } catch (e) { /* ignore */ } }
+  }
+  window.addEventListener('resize', fitApp);
+  window.addEventListener('orientationchange', function () { setTimeout(fitApp, 250); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitApp);
+  fitApp(); setTimeout(fitApp, 400); setTimeout(fitApp, 1500);
+
   // звук
   function soundUI() {
     var b = $('sound'), onNow = window.Sound.on;
@@ -331,8 +344,8 @@
       '<div class="kicker">' + esc(i.name) + ' · экскурс</div>' +
       '<h2>А ты знал?</h2>' +
       '<div class="body"><p>' + esc(r.fact) + '</p>' +
-      '<div class="why"><b>Как играть</b>Каждый месяц — новость и решение. Угадай, куда новость двинет ' + (i.id === 'metals' ? 'цену золота' : 'дела у бизнеса') + ', и реши, рисковать или защищаться.</div>' +
-      '<p class="small muted">Прибыль — сколько заработал банк. Надёжность — выдержит ли он трудности. Доверие — хотят ли люди хранить в нём деньги.</p></div>' +
+      '<div class="why intro-why"><b>Как играть</b>Каждый месяц — новость и решение. Угадай, куда новость двинет ' + (i.id === 'metals' ? 'цену золота' : 'дела у бизнеса') + ', и реши, рисковать или защищаться.</div>' +
+      '<div class="icons-row"><div>' + ic('i-news') + 'Угадай, что будет с ценой</div><div>' + ic('i-coin') + 'Сделка стоит монеты. Угадал — вернёшь с прибылью</div><div>' + ic('i-shield') + 'Ошибся — потеряешь щиты, не деньги</div></div></div>' +
       '<button class="btn" id="begin" type="button">Начать полгода</button>' +
       '<div class="row quiet"><button class="btn ghost" id="intro-back" type="button">' + ic('i-map') + 'В город</button><button class="btn ghost" id="intro-exit" type="button">' + ic('i-exit') + 'Выйти</button></div>' +
       '</article>');
@@ -392,10 +405,19 @@
     }
     return fly;
   }
+  // мелкие значки прямо на кнопке: что получишь и чем рискуешь — без чтения
+  function optFx(o) {
+    var fx = fxOf(o), out = '';
+    ['coins', 'shields', 'hearts'].forEach(function (k) { if (fx[k]) out += '<i>' + ic(ICON[k]) + sgn(fx[k]) + '</i>'; });
+    if (o.position) out += '<i>' + ic(o.position.dir === 'up' ? 'i-up' : 'i-down') + (o.position.hedge ? 'страховка' : 'сделка') + '</i>';
+    if (o.insure) out += '<i>' + ic('i-shield') + 'защита</i>';
+    return out;
+  }
   function optsHTML(o, kind) {
     var b = function (s, icon, cls) {
       if (!o[s]) return '<button class="opt ' + cls + ' none" type="button" tabindex="-1" aria-hidden="true">' + ic(icon) + '</button>';
-      return '<button class="opt ' + cls + '" type="button" data-side="' + s + '">' + (s === 'left' ? ic(icon) : '') + (s === 'down' ? ic(icon) : '') + '<span>' + esc(o[s].label) + '</span>' + (s === 'right' ? ic(icon) : '') + '</button>';
+      return '<button class="opt ' + cls + '" type="button" data-side="' + s + '"><span class="ot">' + (s === 'left' ? ic(icon) : '') + (s === 'down' ? ic(icon) : '') + '<span>' + esc(o[s].label) + '</span>' + (s === 'right' ? ic(icon) : '') + '</span>' +
+        (kind === 'choice' ? '<span class="ofx">' + optFx(o[s]) + '</span>' : '') + '</button>';
     };
     return '<div class="opts">' + b('left', kind === 'event' ? 'i-down' : 'i-left', 'left') + b('down', kind === 'event' ? 'i-flat' : (o.down && o.down.retry ? 'i-wait' : 'i-down'), 'down') + b('right', kind === 'event' ? 'i-up' : 'i-right', 'right') + '</div>' +
       '<div class="swipe-tip">или свайпни карточку: ← · ↓ · →</div>';
@@ -413,10 +435,20 @@
     });
   }
 
+  // подсказка: кнопка с лампочкой, текст раскрывается по нажатию; в первой карточке партии открыта сразу
+  function hintHTML(inner, open) {
+    return '<button class="hintbtn" id="hbtn" type="button">' + ic('i-bulb') + 'Подсказка</button><div class="hintbox" id="hbox"' + (open ? '' : ' hidden') + '>' + inner + '</div>';
+  }
+  function bindHint() {
+    var b = $('hbtn'), x = $('hbox'); if (!b || !x) return;
+    b.addEventListener('click', function () { window.Sound.play('tap'); x.hidden = !x.hidden; });
+  }
   function newsHistory(title) {
     var seen = S.run.seen; if (!seen.length) return '';
-    return '<div class="hist"><b>' + esc(title) + '</b>' + seen.map(function (ev) {
-      return '<span class="hchip ' + (ev.dir === 'up' ? 'up-c' : ev.dir === 'down' ? 'down-c' : 'flat-c') + '">' + ic(ev.dir === 'up' ? 'i-up' : ev.dir === 'down' ? 'i-down' : 'i-flat') + esc(ev.text) + '</span>';
+    var i = S.isl;
+    return '<div class="hist"><b>' + esc(title) + '</b>' + seen.slice(-3).map(function (ev) {
+      var w = ev.dir === 'up' ? i.dirUp : ev.dir === 'down' ? i.dirDown : 'не влияет';
+      return '<span class="hchip ' + (ev.dir === 'up' ? 'up-c' : ev.dir === 'down' ? 'dn-c' : 'flat-c') + '">' + ic(ev.dir === 'up' ? 'i-up' : ev.dir === 'down' ? 'i-down' : 'i-flat') + '<span>' + esc(ev.text) + ' <em>· ' + esc(i.asset) + ' ' + esc(w) + '</em></span></span>';
     }).join('') + '</div>';
   }
 
@@ -428,9 +460,10 @@
       '<div class="who"><div class="ava news">' + ic('i-news') + '</div><div class="wtxt"><div class="kicker">Новости · месяц ' + r.month + '</div><div class="wname">Как думаешь, что будет?</div></div></div>' +
       '<div class="body"><h2>' + esc(ev.text) + '</h2>' +
       '<p class="q">' + (i.id === 'metals' ? 'Что станет с ценой золота?' : 'Что станет с делами у бизнеса?') + '</p>' +
-      '<div class="think">' + esc(i.think || '') + '</div>' + newsHistory('Прошлые новости') + '</div>' +
+      hintHTML('<div class="hq">' + esc(ev.hint || i.think || '') + '</div>', r.seen.length === 0 && appH() > 700) + newsHistory('Прошлые новости') + '</div>' +
       '</article>', optsHTML(opts, 'event'));
     window.Sound.play('news');
+    bindHint();
     var hint = $('hint');
     var fly = swipe($('card'), opts, function (s) {
       hint.className = 'choice-hint' + (s ? ' show ' + s : '');
@@ -446,16 +479,25 @@
     var dirTxt = ev.dir === 'up' ? i.dirUp : ev.dir === 'down' ? i.dirDown : 'почти не изменится';
     var subj = i.id === 'metals' ? 'Золото' : 'Дела у бизнеса';
     var ok = res.correct;
-    var moves = res.moves.map(function (m) { return '<span class="pchip ' + (m.delta > 0 ? 'plus' : 'minus') + '">' + esc(m.name) + ' ' + sgn(m.delta) + '</span>'; }).join('');
+    var moves = res.moves.map(function (m) {
+      var p = r.positions.filter(function (x) { return x.id === m.id; })[0] || {};
+      var win = m.delta > 0, my = p.dir === 'up' ? i.dirUp : i.dirDown;
+      var why = win
+        ? (m.hedge ? 'Страховка сработала: ' + subj.toLowerCase() + ' ' + dirTxt + '.' : 'Твоя сделка выигрывает: ' + subj.toLowerCase() + ' ' + dirTxt + '.')
+        : 'Сделка ждала «' + my + '», а вышло наоборот.';
+      return '<div class="mvr ' + (win ? 'plus' : 'minus') + '"><span class="mn">' + sgn(m.delta) + '</span><div>' + esc(m.name) + '<small>' + esc(why) + '</small></div></div>';
+    }).join('');
     var extras = res.extras.map(function (x) { return '<p class="small"><b>' + esc(x.text) + '</b></p>'; }).join('');
     var h = r.priceHist, from = h[h.length - 2], to = h[h.length - 1];
+    var cls = ev.dir === 'up' ? 'up' : ev.dir === 'down' ? 'down' : 'flat';
     deckShell('<article class="card enter">' +
-      '<div class="verdict ' + (ok ? 'ok' : 'no') + '"><span class="vb">' + ic(ok ? 'i-up' : 'i-wait') + '</span>' + (ok ? 'Верно!' : 'Не совсем') + '</div>' +
+      '<div class="verdict ' + (ok ? 'ok' : 'no') + '"><span class="vb">' + ic(ok ? 'i-check' : 'i-wait') + '</span>' + (ok ? 'Верно!' : 'Почти!') + '</div>' +
       '<div class="body">' +
       (ok ? '' : '<p class="small muted">Ты думал: ' + esc((res.guess === 'up' ? i.predict.right : res.guess === 'down' ? i.predict.left : i.predict.down).toLowerCase()) + '</p>') +
-      '<p class="move-line ' + (ev.dir === 'up' ? 'up-c' : ev.dir === 'down' ? 'down-c' : 'flat-c') + '">' + ic(ev.dir === 'up' ? 'i-up' : ev.dir === 'down' ? 'i-down' : 'i-flat') + esc(subj) + ': ' + esc(dirTxt) + ' · ' + from + ' → ' + to + '</p>' +
-      '<div class="why"><b>Почему</b>' + esc(ev.explain) + '</div>' +
-      (moves ? '<p class="small muted">Твои сделки:</p><div class="moves">' + moves + '</div>' : '') + extras +
+      '<div class="dirline ' + cls + '">' + ic(ev.dir === 'up' ? 'i-up' : ev.dir === 'down' ? 'i-down' : 'i-flat') + '<span>' + esc(subj) + ': ' + esc(dirTxt) + ' · ' + from + ' → ' + to + '</span></div>' +
+      '<div class="shortline">' + esc(ev.short || ev.explain) + '</div>' +
+      '<details class="more"><summary>Почему так?</summary><div class="mtxt">' + esc(ev.explain) + '</div></details>' +
+      (moves ? '<p class="small muted" style="margin:6px 0 0">Твои сделки:</p><div class="mvs">' + moves + '</div>' : '') + extras +
       '</div>' +
       '<button class="btn" id="nx" type="button">Дальше</button></article>');
     window.Sound.play(ok ? 'good' : 'soft');
@@ -477,6 +519,21 @@
     if (o.retry && !S.run.current) out += '';
     return out;
   }
+  // подсказка к решению: «новости» и «сделка» рядом + значок, совпало или нет
+  function choiceHint(c) {
+    var a = window.Engine.advice(S.run, c), i = S.isl;
+    if (a.kind !== 'signal') return '<div class="sigtxt">' + esc(c.explain) + '</div>';
+    var newsPill = a.news
+      ? '<div class="pill ' + a.news + '"><b>' + ic(a.news === 'up' ? 'i-up' : 'i-down') + '</b>Новости: ' + esc(a.news === 'up' ? i.dirUp : i.dirDown) + '</div>'
+      : '<div class="pill q"><b>' + ic('i-q') + '</b>Новости: неясно</div>';
+    var dealPill = '<div class="pill ' + a.deal + '"><b>' + ic(a.deal === 'up' ? 'i-up' : 'i-down') + '</b>' + (a.hedge ? 'Страховка' : 'Сделка') + ' выигрывает, если ' + esc(a.deal === 'up' ? i.dirUp : i.dirDown) + '</div>';
+    var eq = a.match === null ? '<div class="eq unk">' + ic('i-q') + '</div>' : a.match ? '<div class="eq yes">' + ic('i-check') + '</div>' : '<div class="eq no">' + ic('i-exit') + '</div>';
+    var line = a.match === null ? 'Новостей мало — можно подождать месяц.'
+      : a.match ? 'Совпало: сделка по новостям.'
+      : 'Не совпало: это риск.';
+    if (a.hedge) line = 'Страховка нужна, если есть сделки в другую сторону.';
+    return '<div class="sig">' + newsPill + eq + dealPill + '</div><div class="sigtxt">' + esc(line) + '</div>';
+  }
   function renderChoice(cur) {
     var c = cur.card, r = S.run;
     var o = {};
@@ -485,8 +542,9 @@
     deckShell('<article class="card enter" id="card"><div class="choice-hint" id="hint"></div>' +
       '<div class="who"><div class="ava">' + ic('i-' + (c.icon === 'shield' ? 'shield-big' : c.icon)) + '</div><div class="wtxt"><div class="kicker">Решение · месяц ' + r.month + (c._waited ? ' · вернулись' : '') + '</div><div class="wname">' + esc(c.who) + '</div><h2>' + esc(c.title) + '</h2></div></div>' +
       '<div class="body">' + cost + '<p>' + esc(c.text) + '</p>' + (c._waited ? '<p class="small muted">Ты уже откладывал это решение. Второй раз ждать нельзя.</p>' : '') +
-      (r.seen.length ? newsHistory('Что говорили новости') : '<div class="think">Новостей пока не было. Можно рискнуть, отказаться или подождать — ожидание стоит денег.</div>') + '</div>' +
+      hintHTML(choiceHint(c), r.decisions.length === 0 && appH() > 700) + (r.seen.length ? newsHistory('Что говорили новости') : '') + '</div>' +
       '</article>', optsHTML(o, 'choice'));
+    bindHint();
     var hint = $('hint');
     var fly = swipe($('card'), o, function (s) {
       if (!s) { hint.className = 'choice-hint'; meterDots(null); return; }
@@ -512,9 +570,14 @@
     var head = i.id === 'metals'
       ? (d > 0 ? 'Золото подорожало на ' + d + '%' : d < 0 ? 'Золото подешевело на ' + Math.abs(d) + '%' : 'Цена золота почти не изменилась')
       : (d > 0 ? 'Дела у бизнеса пошли лучше' : d < 0 ? 'Дела у бизнеса пошли хуже' : 'Дела у бизнеса почти не изменились');
+    var subjL = i.id === 'metals' ? 'золото' : 'дела у бизнеса';
     var rows = r.settle.map(function (s) {
-      var v = s.coins ? '<span class="up-c">+' + s.coins + ' ' + W.coins(s.coins) + '</span>' : s.saved ? '<span style="color:#1F5FAE">страховка спасла</span>' : s.shields ? '<span class="down-c">' + sgn(s.shields) + ' ' + W.shields(s.shields) + '</span>' : '<span class="flat-c">в ноль</span>';
-      return '<li><span>' + esc(s.name) + '</span>' + v + '</li>';
+      var w = s.dir === 'up' ? i.dirUp : i.dirDown, v, sub;
+      if (s.coins) { v = '<span class="big up-c">+' + s.coins + ' ' + W.coins(s.coins) + '</span>'; sub = s.hedge ? 'Страховка сработала: ' + subjL + ' ' + w + '. Ты на это и рассчитывал!' : 'Ты ждал «' + w + '» — так и вышло!'; }
+      else if (s.saved) { v = '<span class="big" style="color:#1F5FAE">без потерь</span>'; sub = 'Сделка пошла не так, но страховка спасла.'; }
+      else if (s.shields) { v = '<span class="big down-c">' + sgn(s.shields) + ' ' + W.shields(s.shields) + '</span>'; sub = s.hedge ? 'Страховка не пригодилась: цена пошла в другую сторону.' : 'Ты ждал «' + w + '», а вышло наоборот.'; }
+      else { v = '<span class="big flat-c">в ноль</span>'; sub = 'Почти ничего не изменилось.'; }
+      return '<li><div>' + esc(s.name) + '<small>' + esc(sub) + '</small></div>' + v + '</li>';
     }).join('');
     var notes = r.log.filter(function (l) { return l.kind === 'res' && !/: прибыль|: убыток|: в ноль|страховка спасла/.test(l.text); })
       .map(function (l) { return '<li><span>' + esc(l.text) + '</span><span>' + deltaTxt(l.d) + '</span></li>'; }).join('');
@@ -561,7 +624,10 @@
       var a = r.start[k], b = r[k], d = b - a;
       return '<div class="rc">' + ic(ICON[k]) + '<div class="rn">' + (b < 0 ? MINUS + Math.abs(b) : b) + '</div><div class="rl">' + label + ' ' + (d ? '<span class="' + (d > 0 ? 'up-c' : 'down-c') + '">' + sgn(d) + '</span>' : '') + '</div></div>';
     };
-    var flags = e.flags.map(function (f) { return '<li><span class="fd ' + f.tone + '"></span><div><div class="ft">' + esc(f.text) + '</div>' + (f.why ? '<div class="fw">' + esc(f.why) + '</div>' : '') + '</div></li>'; }).join('');
+    var flags = e.flags.map(function (f) {
+      var head = '<span class="fd ' + f.tone + '"></span><div class="ft">' + esc(f.text) + '</div>';
+      return '<li>' + (f.why ? '<details><summary>' + head + '</summary><div class="fw">' + esc(f.why) + '</div></details>' : '<div style="display:flex;gap:10px">' + head.replace(' ▾', '') + '</div>') + '</li>';
+    }).join('');
     var nextGoal = r.bank === 'future' ? 'Получилось! Попробуй другой отдел — там свои новости и сделки.' : 'Сыграй ещё раз: новости и исход будут другими. Сможешь построить Сбер будущего?';
     var other = CONTENT.config.islands.filter(function (x) { return x.playable && x.id !== i.id; })[0];
     panel('<section class="sheet result">' +
@@ -571,7 +637,7 @@
       '<div class="stat"><span class="sn">' + e.newsOk + '/' + e.newsTotal + '</span><span>новостей прочитано верно' + (e.newsOk === e.newsTotal ? ' — как настоящий аналитик!' : '') + '</span></div>' +
       '<div class="badge ' + e.style + '">' + esc(STYLE[e.style].name) + '</div>' +
       '<p class="small muted" style="margin-top:6px">' + esc(STYLE[e.style].text) + ' Оценка решений не зависит от удачи.</p>' +
-      '<h2>Твои решения</h2><ul class="flags">' + flags + '</ul>' +
+      '<h2>Твои решения</h2><p class="small muted" style="margin:0">Нажми на решение, чтобы узнать почему.</p><ul class="flags">' + flags + '</ul>' +
       '<div class="tip"><b>Совет банкира</b>' + esc(deck.tips[e.style]) + '</div>' +
       '<p class="small"><b>Главное:</b> ' + esc(deck.lesson) + '</p>' +
       '<p class="small muted">' + esc(nextGoal) + '</p>' +

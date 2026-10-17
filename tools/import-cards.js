@@ -8,6 +8,7 @@ const T = __dirname, C = path.join(T, '..', 'game', 'content');
 const src = JSON.parse(fs.readFileSync(path.resolve(process.argv[2] || path.join(T, 'cards.json')), 'utf8'));
 const meta = JSON.parse(fs.readFileSync(path.join(T, 'card-meta.json'), 'utf8'));
 const DEPT = { metals: 'metals.json', credit: 'credit.json' };
+const evMeta = JSON.parse(fs.readFileSync(path.join(T, 'event-meta.json'), 'utf8')); // id -> [вопрос-подсказка, коротко «что → итог», (свой разбор)]
 const SIDES = ['right', 'left', 'down'];
 // какие прежние новости (id) остаются; остальные — дубли смысла новых карточек
 const KEEP = { metals: ['c4_goldless_electronics', 'c5_refinery_accident', 'c7_ruble_stronger', 'c8_ruble_weaker', 'c9_fast_trains', 'c10_miners_bankrupt'], credit: [] };
@@ -20,13 +21,15 @@ for (const [dept, file] of Object.entries(DEPT)) {
   // и вероятности по тренду перестают работать (в каждой партии выпадают все новости)
   const have = new Set(events.map(e => norm(e.text)));
   const keep = (old.events || []).filter(e => KEEP[dept].includes(e.id) && !have.has(norm(e.text))).map(e => { const x = Object.assign({}, e); delete x.extra; return x; }); // extra зависел от решений, которых больше нет
+  // подсказки к новостям: короткий вопрос (hint) и «что → итог» (short), чтобы не заставлять детей читать
+  events.concat(keep).forEach(e => { const m = evMeta[e.id]; if (m) { e.hint = m[0]; e.short = m[1]; if (m[2]) e.explain = m[2]; } });
   const choices = [];
   for (const c of src.choices.filter(c => c.dept === dept)) {
     const m = meta[c.id] || [];
     const title = m[0] || c.text.split(/[.,?!]/)[0].slice(0, 36);
     const withPos = c.options.filter(o => o.position).length;
     const out = { id: c.id, type: 'choice', core: (c.weight || 1) >= 3, icon: m[2] || 'case', who: m[1] || 'Банк', title,
-      text: c.text, explain: c.explain, weight: c.weight || 1, options: {} };
+      text: c.text, explain: (meta._explain || {})[c.id] || c.explain, weight: c.weight || 1, options: {} };
     c.options.forEach((o, i) => {
       const x = Object.assign({}, o);
       if (x.position) {

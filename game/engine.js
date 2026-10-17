@@ -125,7 +125,7 @@
     s.positions.forEach(function (p) {
       var delta = (p.dir === dir ? 1 : -1) * points * SIZE[p.size].mult;
       p.pnl += delta;
-      out.push({ id: p.id, name: p.name, delta: delta, pnl: p.pnl });
+      out.push({ id: p.id, name: p.name, delta: delta, pnl: p.pnl, dir: p.dir, hedge: !!p.hedge });
     });
     return out;
   }
@@ -163,7 +163,7 @@
     var card = cur.card, o = card.options[side];
     if (!o) return null;
     var rec = { card: card, side: side, month: s.month, evidence: s.evidence, seen: s.seen.length, waited: !!card._waited, option: o };
-    var d, note = card.title + ': ' + o.label.toLowerCase();
+    var d, note = card.title + ': «' + o.label + '»';
     if (o.retry && !card._waited) {
       d = effect(s, o, card.title + ': решил подождать', 'act');
       card._waited = true; card._waitEvidence = s.evidence; card._waitSeen = s.seen.length;
@@ -212,7 +212,7 @@
     s.finalMove = s.price - 100;
     var lost = 0, won = 0;
     s.settle = s.positions.map(function (p) {
-      var r = { name: p.name, dir: p.dir, size: p.size, pnl: p.pnl, insured: p.insured, coins: 0, shields: 0 };
+      var r = { name: p.name, dir: p.dir, size: p.size, hedge: !!p.hedge, pnl: p.pnl, insured: p.insured, coins: 0, shields: 0 };
       if (p.pnl > 0) { r.coins = p.pnl; won += p.pnl; }
       else if (p.pnl < 0) {
         if (p.insured) r.saved = true;
@@ -263,7 +263,7 @@
         return;
       }
       if (r.side === 'timeout') { add('bad', c.title + ': не успел ответить', 'Полгода закончились, а решение так и не принято. Отложенные дела тоже нужно доделывать.', 'caution', 0.5); return; }
-      if (o.verdict) { add(o.verdict === 'good' ? 'good' : 'bad', c.title + ': ' + o.label.toLowerCase(), c.explain, o.verdict === 'bad' ? 'risk' : null); return; }
+      if (o.verdict) { add(o.verdict === 'good' ? 'good' : 'bad', c.title + ': «' + o.label + '»', c.explain, o.verdict === 'bad' ? 'risk' : null); return; }
       if (c.insurance) {
         var atRisk = s.positions.filter(function (p) {
           return p.month < r.month && (Math.abs(p.evidence) < CLEAR || sgn(p.dir) * p.evidence < 0 || sgn(p.dir) * r.evidence < 0);
@@ -298,7 +298,7 @@
         var maxExp = Math.max.apply(null, posOpts.map(function (x) { return exp(x.position); }));
         if (r.position) {
           var pos = r.position, soft = !pos.insured && posOpts.length > 1 && exp(pos) < maxExp;
-          if (clear && match) add('good', c.title + ': ' + o.label.toLowerCase() + ' по новостям', 'Новости говорили, что ' + asset + ' ' + dirWord + ' — и сделка выигрывала именно тогда.');
+          if (clear && match) add('good', c.title + ': «' + o.label + '»' + ' — по новостям', 'Новости говорили, что ' + asset + ' ' + dirWord + ' — и сделка выигрывала именно тогда.');
           else if (clear && !match) {
             if (pos.insured) add('meh', c.title + ': против новостей, но со страховкой', 'Сделка выигрывала, только если ' + asset + ' ' + dirWord + ', а новости говорили обратное. Хорошо, что застраховал.', 'risk', 0.3);
             else if (soft) add('meh', c.title + ': против новостей, но осторожным вариантом', 'Сделка выигрывала, только если ' + asset + ' ' + dirWord + ', а новости говорили обратное. Хорошо, что риск был меньше.', 'risk', 0.4);
@@ -315,7 +315,7 @@
         }
         return;
       }
-      add('info', c.title + ': ' + o.label.toLowerCase(), c.explain);
+      add('info', c.title + ': «' + o.label + '»', c.explain);
     });
 
     var style;
@@ -331,7 +331,21 @@
       lucky: insuredLater };
   }
 
-  var api = { newRun: newRun, next: next, answer: answer, finish: finish, insuranceCost: insuranceCost, sgn: sgn, CLEAR: CLEAR };
+  /* Подсказка к карточке решения: что говорят новости и когда выигрывает сделка (без готового ответа «жми вправо»). */
+  function advice(s, c) {
+    var posOpts = ['right', 'left', 'down'].map(function (k) { return c.options[k]; }).filter(function (x) { return x && x.position; });
+    var isl = s.island;
+    if (!posOpts.length || !posOpts.every(function (x) { return x.position.dir === posOpts[0].position.dir; })) return { kind: 'text', text: c.explain };
+    var dir = posOpts[0].position.dir, e = s.evidence, clear = Math.abs(e) >= CLEAR;
+    return {
+      kind: 'signal', hedge: !!posOpts[0].position.hedge, deal: dir,
+      news: clear ? (e > 0 ? 'up' : 'down') : null, // что говорят новости
+      match: clear ? sgn(dir) * e > 0 : null,
+      text: c.explain
+    };
+  }
+
+  var api = { advice: advice, newRun: newRun, next: next, answer: answer, finish: finish, insuranceCost: insuranceCost, sgn: sgn, CLEAR: CLEAR };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Engine = api;
 })(this);
