@@ -220,13 +220,22 @@
       '<p>Ты — глава банка на полгода. Выбери отдел: читай новости, принимай решения — и посмотри, каким станет главное здание.</p>' +
       '<button class="btn" id="go" type="button">' + ic('i-map') + 'Выбрать отдел</button>' +
       '</section>');
-    on('#go', 'click', function () { window.Sound.play('tap'); showMap(); });
+    on('#go', 'click', function () {
+      window.Sound.play('tap');
+      // обучение — один раз при первом входе; сохранять «видел» негде (игра ничего не помнит), поэтому раз за открытие
+      if (!S.onbDone && window.Onboarding) { showOnboarding(showMap); } else showMap();
+    });
+  }
+  function showOnboarding(next) {
+    window.Onboarding.show({ sound: function (n) { window.Sound.play(n); }, done: function () { S.onbDone = true; if (next) next(); } });
   }
   function showMap() {
     S.screen = 'map'; S.camTarget = null; S.camR = 31;
     $('hud').hidden = true; setLabels(true);
     if (city) city.auto = 0.04;
-    panel('<div class="hint">Покрути город пальцем и нажми на отдел</div>');
+    panel('<div class="maprow"><div class="hint">Покрути город пальцем и нажми на отдел</div>' +
+      (window.Onboarding ? '<button class="howbtn" id="howto" type="button">' + ic('i-q') + 'Как играть</button>' : '') + '</div>');
+    on('#howto', 'click', function () { window.Sound.play('tap'); showOnboarding(); });
     if (!city) showFallbackMap();
   }
   function showFallbackMap() {

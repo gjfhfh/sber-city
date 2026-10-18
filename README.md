@@ -73,6 +73,7 @@ game/
   engine.js                 логика: колоды, сделки, итог, оценка решений
   city3d.js                 3D-город на WebGL 1, геометрия строится кодом
   ui.js                     экраны, свайпы, HUD, события приложения
+  onboarding.js             обучение при входе: 5 экранов, свайп, «Пропустить» (снова — кнопка «Как играть» на карте)
   audio.js                  звуки синтезом WebAudio
   content/                  config.json, metals.json, credit.json, fallback.js
 tools/
