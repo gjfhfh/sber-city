@@ -156,30 +156,19 @@
     S.run = null; $('hud').hidden = true; setLabels(true);
     showMap();
   }
-  function quitGame() {
-    closeModal(); Bridge.send('CLOSE_EVENT'); toast('Закрываем игру…');
-    // в приложении экран закроется сам; если мы в обычном браузере — возвращаемся на титульный экран
-    setTimeout(function () {
-      if (document.hidden) return;
-      if (S.run) { S.run = null; resetSber(); }
-      $('hud').hidden = true; setLabels(true); showTitle();
-      toast('В приложении игра закроется. Здесь просто закрой вкладку');
-    }, 1200);
-  }
   function resetSber() { if (city && city.sberState !== 'classic') city.setSber('classic', true); }
+  // пауза внутри партии: продолжить или вернуться в город (закрывает игру само приложение)
   function openMenu() {
-    var m = $('modal'), inRun = !!S.run && S.screen !== 'result';
+    var m = $('modal');
     window.Sound.play('tap');
     m.innerHTML = '<section class="sheet" role="dialog" aria-modal="true">' +
-      '<h2>' + (inRun ? 'Пауза' : 'Закрыть игру?') + '</h2>' +
-      '<p class="muted">' + (inRun ? 'Эта партия не сохранится: игра ничего не запоминает между запусками.' : 'Игра закроется.') + '</p>' +
-      '<button class="btn" id="m-stay" type="button">' + (inRun ? 'Продолжить' : 'Остаться') + '</button>' +
-      (inRun ? '<button class="btn ghost" id="m-city" type="button">' + ic('i-map') + 'В город (партия сбросится)</button>' : '') +
-      '<button class="btn ghost" id="m-exit" type="button">' + ic('i-exit') + 'Выйти из игры</button></section>';
+      '<h2>Пауза</h2>' +
+      '<p class="muted">Эта партия не сохранится: игра ничего не запоминает между запусками.</p>' +
+      '<button class="btn" id="m-stay" type="button">Продолжить</button>' +
+      '<button class="btn ghost" id="m-city" type="button">' + ic('i-map') + 'В город (партия сбросится)</button></section>';
     m.hidden = false;
     on('#m-stay', 'click', closeModal);
     on('#m-city', 'click', leaveRun);
-    on('#m-exit', 'click', quitGame);
     m.addEventListener('click', function h(e) { if (e.target === m) { closeModal(); m.removeEventListener('click', h); } });
   }
   function panel(html) {
@@ -216,7 +205,6 @@
     b.setAttribute('aria-label', onNow ? 'Звук включён' : 'Звук выключен');
     b.innerHTML = ic(onNow ? 'i-sound' : 'i-mute');
   }
-  $('quit').addEventListener('click', openMenu);
   $('menu').addEventListener('click', openMenu);
   $('sound').addEventListener('click', function () { window.Sound.toggle(); soundUI(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) window.Sound.pause(); else window.Sound.resume(); });
@@ -663,22 +651,25 @@
     }).join('');
     var nextGoal = r.bank === 'future' ? 'Получилось! Попробуй другой отдел — там свои новости и сделки.' : 'Сыграй ещё раз: новости и исход будут другими. Сможешь построить Сбер будущего?';
     var other = CONTENT.config.islands.filter(function (x) { return x.playable && x.id !== i.id; })[0];
+    // карточка компактная, чтобы над ней было видно Сбер: главное сверху, разбор — по нажатию
     panel('<section class="sheet result">' +
       '<div class="kicker">' + esc(i.name) + ' · итог</div>' +
-      '<h1>' + esc(B.title) + '</h1><p>' + esc(B.text) + '</p>' +
+      '<h1>' + esc(B.title) + '</h1><p class="rtext">' + esc(B.text) + '</p>' +
       '<div class="res3">' + cell('coins', 'Прибыль') + cell('shields', 'Надёжность') + cell('hearts', 'Доверие') + '</div>' +
-      '<div class="stat"><span class="sn">' + e.newsOk + '/' + e.newsTotal + '</span><span>новостей прочитано верно' + (e.newsOk === e.newsTotal ? ' — как настоящий аналитик!' : '') + '</span></div>' +
-      '<div class="badge ' + e.style + '">' + esc(STYLE[e.style].name) + '</div>' +
-      '<p class="small muted" style="margin-top:6px">' + esc(STYLE[e.style].text) + ' Оценка решений не зависит от удачи.</p>' +
+      '<div class="rchips"><span class="stat"><span class="sn">' + e.newsOk + '/' + e.newsTotal + '</span><span>новостей верно</span></span>' +
+      '<span class="badge ' + e.style + '">' + esc(STYLE[e.style].name) + '</span></div>' +
+      '<button class="btn gold" id="share" type="button">' + ic('i-share') + 'Поделиться моим Сбером</button>' +
+      '<div class="row r3"><button class="btn" id="again" type="button">' + ic('i-replay') + 'Ещё раз</button>' +
+      (other ? '<button class="btn ghost" id="other" type="button">' + ic(ISL_ICON[other.icon]) + esc(other.short) + '</button>' : '') +
+      '<button class="btn ghost" id="tocity" type="button">' + ic('i-map') + 'В город</button></div>' +
+      '<details class="rmore"><summary>Разбор решений и совет банкира</summary>' +
+      '<p class="small muted rtext-d">' + esc(B.text) + '</p>' +
+      '<p class="small muted">' + esc(STYLE[e.style].text) + ' Оценка решений не зависит от удачи.</p>' +
       '<h2>Твои решения</h2><p class="small muted" style="margin:0">Нажми на решение, чтобы узнать почему.</p><ul class="flags">' + flags + '</ul>' +
       '<div class="tip"><b>Совет банкира</b>' + esc(deck.tips[e.style]) + '</div>' +
       '<p class="small"><b>Главное:</b> ' + esc(deck.lesson) + '</p>' +
       '<p class="small muted">' + esc(nextGoal) + '</p>' +
-      videoHTML() +
-      '<button class="btn gold" id="share" type="button">' + ic('i-share') + 'Поделиться моим Сбером</button>' +
-      '<div class="row"><button class="btn" id="again" type="button">' + ic('i-replay') + 'Ещё раз</button>' +
-      (other ? '<button class="btn ghost" id="other" type="button">' + ic(ISL_ICON[other.icon]) + esc(other.short) + '</button>' : '') + '</div>' +
-      '<div class="row"><button class="btn ghost" id="tocity" type="button">' + ic('i-map') + 'В город</button><button class="btn ghost" id="exit" type="button">' + ic('i-exit') + 'Выйти</button></div>' +
+      videoHTML() + '</details>' +
       '</section>');
     $('hud').hidden = true;
     on('#share', 'click', share);
@@ -686,7 +677,11 @@
     on('#again', 'click', function () { resetSber(); startRun(i); });
     on('#other', 'click', function () { resetSber(); startRun(other); });
     on('#tocity', 'click', function () { resetSber(); S.run = null; showMap(); });
-    on('#exit', 'click', quitGame);
+    // открыли разбор — карточка может занять больше места, камера пересчитывается
+    on('.rmore', 'toggle', function () {
+      var sh = document.querySelector('.sheet.result'); if (sh) sh.classList.toggle('expanded', this.open);
+      S.camTarget = 'sber'; requestAnimationFrame(frameCamera);
+    });
   }
 
   /* ---------- шеринг: картинка рисуется на устройстве, ничего не уходит наружу ---------- */

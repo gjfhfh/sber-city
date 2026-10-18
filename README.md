@@ -61,7 +61,7 @@ python3 -m http.server 8080
 | Контракт с приложением | Только `CLOSE_EVENT`, `FINISH_EVENT`, `COMPLETED_EVENT`, `VIBRATION_EVENT`, `SHARING_EVENT` |
 | Без WebGL | Список отделов вместо 3D, игра проходится целиком |
 
-События: `VIBRATION_EVENT` — свайпы и тапы, `FINISH_EVENT` — конец партии, `COMPLETED_EVENT` — один раз за открытие, `SHARING_EVENT` — «Поделиться» (`{ text, image }`, картинка рисуется на устройстве), `CLOSE_EVENT` — кнопка «Выйти».
+События: `VIBRATION_EVENT` — свайпы и тапы, `FINISH_EVENT` — конец партии, `COMPLETED_EVENT` — один раз за открытие, `SHARING_EVENT` — «Поделиться» (`{ text, image }`, картинка рисуется на устройстве), `CLOSE_EVENT` поддерживается контрактом, но игра его не шлёт: закрытие — на стороне песочницы приложения (своей кнопки выхода в игре нет).
 
 ## Контент
 

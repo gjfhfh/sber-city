@@ -212,8 +212,6 @@ body.land .sheet.result { max-height: calc(var(--app-h, 100vh) - var(--sat) - 70
 @media (max-width: 380px) { .months { font-size: 13px; padding: 0 10px; } .months .mdots i { width: 6px; height: 6px; } .hud-row { padding-right: 96px; } }
 
 /* ---------- выход ---------- */
-.floating.quit { left: 64px; }
-body.playing .floating.quit { display: none; }
 #menu { pointer-events: auto; margin-left: auto; flex: none; }
 .modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; padding: 12px calc(12px) calc(var(--sab) + 12px); background: rgba(15,42,30,.45); }
 .modal .sheet { width: 100%; max-height: none; }
@@ -337,3 +335,40 @@ body.short details.more summary { padding: 3px 0; }
 .why, .shortline, .hintbox, .rc { background: linear-gradient(135deg, #F1FBF4, #F6FBEA); }
 .stat { background: linear-gradient(90deg, #DDF8E4, #EEFBD8); }
 .tip { background: linear-gradient(135deg, #FFF4D6, #FFF9E8); }
+
+/* ---------- компактная карточка результата: над ней виден Сбер ---------- */
+.sheet.result { max-height: calc(var(--app-h, 100vh) * .5); padding: 14px 14px 12px; transition: max-height .25s ease; }
+.sheet.result.expanded { max-height: calc(var(--app-h, 100vh) * .74); }
+body.short .sheet.result { max-height: calc(var(--app-h, 100vh) * .56); }
+body.short .sheet.result.expanded { max-height: calc(var(--app-h, 100vh) * .78); }
+body.land .sheet.result, body.land .sheet.result.expanded { max-height: calc(var(--app-h, 100vh) - var(--sat) - 70px); }
+.sheet.result h1 { font-size: 24px; line-height: 1.1; margin: 2px 0 4px; }
+.sheet.result .rtext { font-size: 13.5px; line-height: 1.32; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+.sheet.result .res3 { gap: 6px; margin: 6px 0; }
+.sheet.result .rc { padding: 6px 4px; border-radius: 14px; }
+.sheet.result .rc svg { width: 20px; height: 20px; margin-bottom: 2px; }
+.sheet.result .rc .rn { font-size: 17px; line-height: 1.1; }
+.sheet.result .rc .rl { font-size: 11px; line-height: 1.2; }
+.rchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 0 8px; }
+.rchips .stat { margin: 0; padding: 5px 10px; border-radius: 999px; font-size: 13px; gap: 6px; }
+.rchips .stat .sn { font-size: 16px; }
+.rchips .badge { padding: 5px 12px; font-size: 13px; }
+.sheet.result .btn { min-height: 46px; font-size: 16px; border-radius: 16px; }
+.sheet.result .row.r3 { gap: 8px; margin-top: 8px; }
+.sheet.result .row.r3 .btn { min-height: 42px; font-size: 14px; padding: 0 6px; gap: 5px; min-width: 0; }
+.sheet.result .row.r3 .btn svg { width: 17px; height: 17px; }
+.rmore { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 4px; }
+.rmore > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; font-weight: 800; font-size: 14px; color: var(--green-d); }
+.rmore > summary::-webkit-details-marker { display: none; }
+.rmore > summary::after { content: "▾"; font-size: 12px; }
+.rmore[open] > summary::after { content: "▴"; }
+.rtext-d { display: none; }
+body.short .sheet.result .rtext { display: none; }
+body.short .sheet.result .rtext-d { display: block; }
+body.short .sheet.result { padding: 12px 12px 10px; }
+body.short .sheet.result h1 { font-size: 22px; }
+body.short .sheet.result .rc svg { display: none; }
+body.short .sheet.result .rc { padding: 5px 4px; }
+body.short .rchips { margin: 5px 0 6px; }
+body.short .sheet.result .btn { min-height: 42px; font-size: 15px; }
+body.short .sheet.result .row.r3 .btn { min-height: 38px; }
